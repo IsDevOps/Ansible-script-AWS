@@ -1,0 +1,89 @@
+---
+- hosts: aws_ec2_inventory
+  become: true
+  gather_facts: true
+  vars:
+    state: present  # Change to 'absent' to remove configuration
+    desired_package: httpd  # Replace with the package you want to manage
+    desired_service: httpd  # Replace with the service you want to manage
+
+  tasks:
+    - name: Ensure package is installed
+      amazon.aws.ssm:
+        name: "{{ desired_package }}-install"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          yum install -y {{ desired_package }}
+        when: ansible_os_family == "RedHat"
+
+    - name: Ensure package is installed
+      amazon.aws.ssm:
+        name: "{{ desired_package }}-install"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          apt-get update && apt-get install -y {{ desired_package }}
+        when: ansible_os_family == "Debian"
+
+    - name: Ensure service is started and enabled
+      amazon.aws.ssm:
+        name: "{{ desired_service }}-start"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          systemctl start {{ desired_service }} && systemctl enable {{ desired_service }}
+        when: ansible_os_family == "RedHat"
+
+    - name: Ensure service is started and enabled
+      amazon.aws.ssm:
+        name: "{{ desired_service }}-start"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          service {{ desired_service }} start && update-rc.d {{ desired_service }} defaults
+        when: ansible_os_family == "Debian"
+
+    - name: Ensure package is removed (if state is set to 'absent')
+      amazon.aws.ssm:
+        name: "{{ desired_package }}-remove"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          yum remove -y {{ desired_package }}
+        when: state == 'absent' and ansible_os_family == "RedHat"
+
+    - name: Ensure package is removed (if state is set to 'absent')
+      amazon.aws.ssm:
+        name: "{{ desired_package }}-remove"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          apt-get remove -y {{ desired_package }}
+        when: state == 'absent' and ansible_os_family == "Debian"
+
+    - name: Ensure service is stopped and disabled (if state is set to 'absent')
+      amazon.aws.ssm:
+        name: "{{ desired_service }}-stop"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          systemctl stop {{ desired_service }} && systemctl disable {{ desired_service }}
+        when: state == 'absent' and ansible_os_family == "RedHat"
+
+    - name: Ensure service is stopped and disabled (if state is set to 'absent')
+      amazon.aws.ssm:
+        name: "{{ desired_service }}-stop"
+        document_name: AWS-RunShellScript
+        timeout_seconds: 300
+        working_directory: /tmp
+        command: |
+          service {{ desired_service }} stop && update-rc.d {{ desired_service }} remove
+        when: state == 'absent' and ansible_os_family == "Debian"
